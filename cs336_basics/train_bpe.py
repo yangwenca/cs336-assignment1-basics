@@ -130,76 +130,29 @@ def implement_train_bpe(
         if i == left_count - 1:
             break
         ## token
-        # count_token
-        count_token[count].remove(token)
-        if len(count_token[count]) == 0:
-            del count_token[count]
-        # token_count
-        del token_count[token]
-        # token_string
-        all_string = token_string[token]
-        del token_string[token]
-
-        remove_token_count = defaultdict(int)
-        remove_token_string = defaultdict(set)
-        add_token_count = defaultdict(int)
-        add_token_string = defaultdict(set)
-        for cur_string in all_string:
+        new_token_count = defaultdict(int)
+        for cur_string, count in string_count.items():
             tmp = []
-            length = len(string_token[cur_string])
-            cur_count = string_count[cur_string]
-            for token_idx, cur_token in enumerate(string_token[cur_string]):
+            tokens = string_token[cur_string]
+            length = len(tokens)
+            for idx, cur_token in enumerate(tokens):
                 if cur_token == token:
                     continue
-                elif (((token_idx < length - 1) and (string_token[cur_string][token_idx + 1] == token)) or 
-                    ((token_idx > 0) and (string_token[cur_string][token_idx - 1] == token))):
-                    ## cur_token
-                    remove_token_count[cur_token] += cur_count
-                    remove_token_string[cur_token].add(cur_string)
-
-                    ## new_token
-                    if (token_idx < length - 1) and (string_token[cur_string][token_idx + 1] == token):
-                        new_token = (cur_token[0], token[0] + token[1])
-                    else:
+                if (idx > 0 and tokens[idx-1] == token) or (idx < length - 1 and tokens[idx + 1] == token):
+                    if idx > 0 and tokens[idx-1] == token:
                         new_token = (token[0] + token[1], cur_token[1])
+                    else:
+                        new_token = (cur_token[0], token[0] + token[1])
                     tmp.append(new_token)
-                    add_token_count[new_token] += cur_count
-                    add_token_string[new_token].add(cur_string)
                 else:
                     tmp.append(cur_token)
-            ## token, cur_token, new_token
-            # string_token
             string_token[cur_string] = tmp
-
-        ## remove old token
-        # token_count
-        # count_token
-        for token, reduce_count in remove_token_count.items():
-            old_count = token_count[token]
-            new_count = old_count - reduce_count
-            token_count[token] = new_count
-            if new_count == 0:
-                del token_count[token]
-            count_token[old_count].discard(token)
-            if len(count_token[old_count]) == 0:
-                del count_token[old_count]
-            if new_count != 0:
-                count_token[new_count].add(token)
-        # token_string
-        for token, strings in remove_token_string.items():
-            token_string[token].difference_update(strings)
-            if len(token_string[token]) == 0:
-                del token_string[token]
-        
-        ## add new token
-        # token_count
-        # count_token
-        for token, count in add_token_count.items():
-            token_count[token] += count
-            count_token[count].add(token)
-        # token_string
-        for token, strings in add_token_string.items():
-            token_string[token].update(strings)
+            for tt in tmp:
+                new_token_count[tt] += string_count[cur_string]
+        new_count_token = defaultdict(set)
+        for token, count in new_token_count.items():
+            new_count_token[count].add(token)
+        count_token = new_count_token
     return (vocab, merges)
 
 
