@@ -27,6 +27,22 @@ But any sequence starting with 0xC0 or 0xC1 is forbidden (they are â€œoverlongâ€
 Decoders must reject it according to the UTF-8 spec
 '''
 
+'''
+Problem BPE training on TinyStories
+
+Elapsed time: 22.2980 seconds
+RAM usage: 117.48 MB
+b' responsibility'
+'''
+
+'''
+Problem BPE training on OpenWebText
+
+Elapsed time: 606.3452 seconds
+RAM usage: 4978.86 MB
+b'\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82\xc3\x83\xc3\x82'
+'''
+
 PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
 
 
@@ -304,15 +320,46 @@ def implement_train_bpe(
     return (vocab, merges)
 
 
-# input_path = "/Users/YangWen/Documents/Code/github/assignment1-basics/tests/fixtures/corpus.en"
 # if __name__ == "__main__":
+#     is_save = True
+#     prefix = "/Users/YangWen/Documents/Code/github/assignment1-basics/data/"
+#     common = "owt_train"
+#     input_path = prefix + common + ".txt"
+#     vocab_size_cur = 32000
+#     import time
+#     start = time.perf_counter()
 
-#     count_token_ans = implement_train_bpe(
-#             input_path=input_path,
-#             vocab_size=500,
-#             special_tokens=["<|endoftext|>"],
-#         )
-#     print(count_token_ans)
+#     vocab, merges = implement_train_bpe(
+#         input_path=input_path,
+#         vocab_size=vocab_size_cur,
+#         special_tokens=["<|endoftext|>"],
+#     )
+
+#     end = time.perf_counter()
+#     print(f"Elapsed time: {end - start:.4f} seconds")
+
+#     import psutil
+
+#     process = psutil.Process(os.getpid())
+#     mem_bytes = process.memory_info().rss
+#     mem_mb = mem_bytes / (1024 ** 2)
+
+#     print(f"RAM usage: {mem_mb:.2f} MB")
+
+#     if is_save:
+#         import pickle
+#         save_file = prefix + common + "_vocab.pkl"
+#         with open(save_file, "wb") as f:
+#             pickle.dump(vocab, f)
+#         save_file = prefix + common + "_merge.pkl"
+#         with open(save_file, "wb") as f:
+#             pickle.dump(merges, f)
+
+#     ans = ''
+#     for value in vocab.values():
+#         if len(ans) < len(value) or (len(ans) == len(value) and value > ans):
+#             ans = value
+#     print(ans)
 
 # count_token_op = implement_train_bpe(
 #         input_path=input_path,
