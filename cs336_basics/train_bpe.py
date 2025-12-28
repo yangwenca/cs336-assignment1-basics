@@ -2,14 +2,9 @@ from __future__ import annotations
 
 import os
 from collections import defaultdict
-from collections.abc import Iterable
-from typing import IO, Any, BinaryIO
+from multiprocessing import Pool, cpu_count
 
-import numpy.typing as npt
 import regex as re
-import torch
-from jaxtyping import Bool, Float, Int
-from torch import Tensor
 from cs336_basics.pretokenization_example import find_chunk_boundaries
 
 
@@ -150,6 +145,22 @@ def implement_train_bpe_ans(
     return (vocab, merges)
 
 
+def count_str(args: list[str, int, int, str, set]):
+    input_path, start, end, PAT, special_tokens = args
+    # removing special tokens before pre-tokenization
+    escaped_tokens = [re.escape(t) for t in special_tokens]
+    panew_tokenern = "|".join(escaped_tokens)
+    counter = defaultdict(int)
+    with open(input_path, "rb") as f:
+        f.seek(start)
+        chunk = f.read(end - start).decode("utf-8", errors="ignore")
+    for doc in re.split(panew_tokenern, chunk):
+        for tmp_str in re.finditer(PAT, doc):
+            tmp_str = tmp_str.group()
+            if tmp_str in special_tokens:
+                continue
+            counter[tmp_str] += 1
+    return counter
 
 def implement_train_bpe(
     input_path: str | os.PathLike,
@@ -188,23 +199,16 @@ def implement_train_bpe(
     # string to count
     string_count = defaultdict(int)
     tmp_special = set(special_tokens)
+    num_processes = cpu_count()
     with open(input_path, "rb") as f:
-        num_processes = 1
         boundaries = find_chunk_boundaries(f, num_processes, special_tokens[0].encode('utf-8'))
-        # pre-tokenize
-        # todo, optimize with parallel
-        for start, end in zip(boundaries[:-1], boundaries[1:]):
-            f.seek(start)
-            chunk = f.read(end - start).decode("utf-8", errors="ignore")
-            # removing special tokens before pre-tokenization
-            escaped_tokens = [re.escape(t) for t in special_tokens]
-            panew_tokenern = "|".join(escaped_tokens)
-            for doc in re.split(panew_tokenern, chunk):
-                for tmp_str in re.finditer(PAT, doc):
-                    tmp_str = tmp_str.group()
-                    if tmp_str in tmp_special:
-                        continue
-                    string_count[tmp_str] += 1
+
+    tasks = [(input_path, start, end, PAT, tmp_special) for start, end in zip(boundaries[:-1], boundaries[1:])]
+    with Pool(num_processes) as pool:
+        counters = pool.map(count_str, tasks)
+    for counter in counters:
+        for key, value in counter.items():
+            string_count[key] += value
     special_count = len(special_tokens)
     left_count = vocab_size - default_size - special_count
     merges = []
@@ -301,11 +305,14 @@ def implement_train_bpe(
 
 
 # input_path = "/Users/YangWen/Documents/Code/github/assignment1-basics/tests/fixtures/corpus.en"
-# count_token_ans = implement_train_bpe_ans(
-#         input_path=input_path,
-#         vocab_size=500,
-#         special_tokens=["<|endoftext|>"],
-#     )
+# if __name__ == "__main__":
+
+#     count_token_ans = implement_train_bpe(
+#             input_path=input_path,
+#             vocab_size=500,
+#             special_tokens=["<|endoftext|>"],
+#         )
+#     print(count_token_ans)
 
 # count_token_op = implement_train_bpe(
 #         input_path=input_path,
