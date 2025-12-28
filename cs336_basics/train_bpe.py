@@ -254,10 +254,7 @@ def implement_train_bpe(
         all_string = token_string[target_token]
         del token_string[target_token]
 
-        remove_token_count = defaultdict(int)
-        remove_token_string = defaultdict(set)
-        add_token_count = defaultdict(int)
-        add_token_string = defaultdict(set)
+        update_token_count = defaultdict(int)
         for cur_string in all_string:
             tmp = []
             tokens = string_token[cur_string]
@@ -275,33 +272,23 @@ def implement_train_bpe(
             ## token, cur_token, new_token
             # string_token
             string_token[cur_string] = tmp
-            # check which token should be added, which should be removed
-            tmp_token_count = defaultdict(int)
+            # update_token_count, token_string
             for idx in range(len(tokens) - 1):
                 tmp_token = (tokens[idx], tokens[idx + 1])
                 if tmp_token == target_token:
                     continue
-                tmp_token_count[tmp_token] -= cur_count
+                update_token_count[tmp_token] -= cur_count
+                token_string[tmp_token].discard(cur_string)
             for idx in range(len(tmp) - 1):
                 tmp_token = (tmp[idx], tmp[idx + 1])
-                tmp_token_count[tmp_token] += cur_count
-            # update remove_token_count, remove_token_string
-            # add_token_count, add_token_string
-            for key, value in tmp_token_count.items():
-                if value == 0:
-                    continue
-                elif value < 0:
-                    remove_token_count[key] += abs(value)
-                    remove_token_string[key].add(cur_string)
-                else:
-                    add_token_count[key] += abs(value)
-                    add_token_string[key].add(cur_string)
-        ## remove old token
-        # token_count
-        # count_token
-        for token, reduce_count in remove_token_count.items():
+                update_token_count[tmp_token] += cur_count
+                token_string[tmp_token].add(cur_string)
+        # token_count and count_token
+        for token, diff in update_token_count.items():
+            if diff == 0:
+                continue
             old_count = token_count[token]
-            new_count = old_count - reduce_count
+            new_count = old_count + diff
             token_count[token] = new_count
             if new_count == 0:
                 del token_count[token]
@@ -310,22 +297,6 @@ def implement_train_bpe(
                 del count_token[old_count]
             if new_count != 0:
                 count_token[new_count].add(token)
-        # token_string
-        for token, strings in remove_token_string.items():
-            token_string[token].difference_update(strings)
-            if len(token_string[token]) == 0:
-                del token_string[token]
-
-        ## add new token
-        # token_count
-        # count_token
-        for token, count in add_token_count.items():
-            assert token not in token_count, f'waht is the {token}'
-            token_count[token] += count
-            count_token[count].add(token)
-        # token_string
-        for token, strings in add_token_string.items():
-            token_string[token].update(strings)
     return (vocab, merges)
 
 
@@ -345,13 +316,13 @@ def implement_train_bpe(
 # for count, ans in count_token_ans.items():
 #     assert count in count_token_op
 #     opt = count_token_op[count]
-#     assert opt == ans, f'count is {count}, diff is {ans - opt} and {opt - ans}, {ans}, {opt}'
+#     assert opt == ans, f'count is {count}, diff is {ans - opt} and {opt - ans}'
 
 # def test_implement_train_bpe():
 #     input_path = "/Users/YangWen/Documents/Code/github/assignment1-basics/cs336_basics/train_bpe_file.txt"
 #     with open(input_path, "w") as f:
 #         f.write(" low low low low low lower lower widest widest widest newest newest newest newest newest newest")
-#     vocab, merges = implement_train_bpe(input_path, 300, ["<|endoftext|>"])
+#     _, merges = implement_train_bpe(input_path, 300, ["<|endoftext|>"])
 #     assert [(b's', b't'), (b'e', b'st'), (b'o', b'w'), (b'l', b'ow'), (b' ', b'low'),
 #             (b'w', b'est'), (b'n', b'e'), (b'ne', b'west'), (b' ', b'newest'),
 #             (b'w', b'i'), (b'wi', b'd'), (b'wid', b'est'),
