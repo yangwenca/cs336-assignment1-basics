@@ -84,7 +84,7 @@ def implement_train_bpe_ans(
         cur_idx += 1
     # string to count
     string_count = defaultdict(int)
-    tmp_special = set(special_tokens)
+    tmp_special = sorted(special_tokens, key=len, reverse=True)
     with open(input_path, "rb") as f:
         num_processes = 1
         boundaries = find_chunk_boundaries(f, num_processes, special_tokens[0].encode('utf-8'))
@@ -214,7 +214,7 @@ def implement_train_bpe(
         cur_idx += 1
     # string to count
     string_count = defaultdict(int)
-    tmp_special = set(special_tokens)
+    tmp_special = sorted(special_tokens, key=len, reverse=True)
     num_processes = cpu_count()
     with open(input_path, "rb") as f:
         boundaries = find_chunk_boundaries(f, num_processes, special_tokens[0].encode('utf-8'))
