@@ -84,7 +84,7 @@ def implement_train_bpe_ans(
         cur_idx += 1
     # string to count
     string_count = defaultdict(int)
-    tmp_special = set(special_tokens)
+    tmp_special = sorted(special_tokens, key=len, reverse=True)
     with open(input_path, "rb") as f:
         num_processes = 1
         boundaries = find_chunk_boundaries(f, num_processes, special_tokens[0].encode('utf-8'))
@@ -95,8 +95,8 @@ def implement_train_bpe_ans(
             chunk = f.read(end - start).decode("utf-8", errors="ignore")
             # removing special tokens before pre-tokenization
             escaped_tokens = [re.escape(t) for t in special_tokens]
-            panew_tokenern = "|".join(escaped_tokens)
-            for doc in re.split(panew_tokenern, chunk):
+            pattern = "|".join(escaped_tokens)
+            for doc in re.split(pattern, chunk):
                 for tmp_str in re.finditer(PAT, doc):
                     tmp_str = tmp_str.group()
                     if tmp_str in tmp_special:
@@ -165,12 +165,12 @@ def count_str(args: list[str, int, int, str, set]):
     input_path, start, end, PAT, special_tokens = args
     # removing special tokens before pre-tokenization
     escaped_tokens = [re.escape(t) for t in special_tokens]
-    panew_tokenern = "|".join(escaped_tokens)
+    pattern = "|".join(escaped_tokens)
     counter = defaultdict(int)
     with open(input_path, "rb") as f:
         f.seek(start)
         chunk = f.read(end - start).decode("utf-8", errors="ignore")
-    for doc in re.split(panew_tokenern, chunk):
+    for doc in re.split(pattern, chunk):
         for tmp_str in re.finditer(PAT, doc):
             tmp_str = tmp_str.group()
             if tmp_str in special_tokens:
@@ -214,7 +214,7 @@ def implement_train_bpe(
         cur_idx += 1
     # string to count
     string_count = defaultdict(int)
-    tmp_special = set(special_tokens)
+    tmp_special = sorted(special_tokens, key=len, reverse=True)
     num_processes = cpu_count()
     with open(input_path, "rb") as f:
         boundaries = find_chunk_boundaries(f, num_processes, special_tokens[0].encode('utf-8'))
