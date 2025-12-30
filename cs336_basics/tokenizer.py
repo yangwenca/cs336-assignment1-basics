@@ -36,9 +36,20 @@ class Tokenizer:
 
 
     def encode(self, text: str) -> list[int]:
+        escaped_tokens = [re.escape(t) for t in self.special_tokens]
+        pattern = "|".join(escaped_tokens)
+        # keep the dropped pattern
+        pattern = f"({pattern})"
+        if not self.special_tokens:
+            chunks = [text]
+        else:
+            chunks = [c for c in re.compile(pattern).split(text) if c]
         ans = []
-        def encode_id(left, right):
-            for tmp_str in re.finditer(PAT, text[left:right]):
+        def encode_id(txt):
+            if txt in set(self.special_tokens):
+                ans.append(self.token_id[txt.encode('utf-8')])
+                return
+            for tmp_str in re.finditer(PAT, txt):
                 byte_str = tmp_str.group().encode('utf-8')
                 if byte_str in self.vocab:
                     ans.append(self.vocab[byte_str])
@@ -61,21 +72,8 @@ class Tokenizer:
                         byte_array = tmp
                     for cur_byte in byte_array:
                         ans.append(self.token_id[cur_byte])
-        end = 0
-        if len(self.special_tokens) != 0:
-            escaped_tokens = [re.escape(t) for t in self.special_tokens]
-            panew_tokenern = "|".join(escaped_tokens)
-            for cur in re.finditer(panew_tokenern, text):
-                start = cur.start()
-                if start != end:
-                    encode_id(end, start)
-                end = cur.end()
-                if start != end:
-                    # skip empty string
-                    ans.append(self.token_id[cur.group().encode('utf-8')])
-        length = len(text)
-        if end != length:
-            encode_id(end, length)
+        for chunk in chunks:
+            encode_id(chunk)
         return ans
         
 

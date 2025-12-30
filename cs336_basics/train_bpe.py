@@ -95,8 +95,8 @@ def implement_train_bpe_ans(
             chunk = f.read(end - start).decode("utf-8", errors="ignore")
             # removing special tokens before pre-tokenization
             escaped_tokens = [re.escape(t) for t in special_tokens]
-            panew_tokenern = "|".join(escaped_tokens)
-            for doc in re.split(panew_tokenern, chunk):
+            pattern = "|".join(escaped_tokens)
+            for doc in re.split(pattern, chunk):
                 for tmp_str in re.finditer(PAT, doc):
                     tmp_str = tmp_str.group()
                     if tmp_str in tmp_special:
@@ -165,12 +165,12 @@ def count_str(args: list[str, int, int, str, set]):
     input_path, start, end, PAT, special_tokens = args
     # removing special tokens before pre-tokenization
     escaped_tokens = [re.escape(t) for t in special_tokens]
-    panew_tokenern = "|".join(escaped_tokens)
+    pattern = "|".join(escaped_tokens)
     counter = defaultdict(int)
     with open(input_path, "rb") as f:
         f.seek(start)
         chunk = f.read(end - start).decode("utf-8", errors="ignore")
-    for doc in re.split(panew_tokenern, chunk):
+    for doc in re.split(pattern, chunk):
         for tmp_str in re.finditer(PAT, doc):
             tmp_str = tmp_str.group()
             if tmp_str in special_tokens:
