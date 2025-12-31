@@ -1,4 +1,4 @@
-from einops import einsum
+from einops import einsum, rearrange
 import math
 import torch
 
@@ -95,3 +95,37 @@ class SwiGLU(torch.nn.Module):
         w3_x = einsum(x, self.w3, "... d_model, d_ff d_model -> ... d_ff")
         value = w1_x * sigmoid * w3_x
         return einsum(value, self.w2, "... d_ff, d_model d_ff -> ... d_model")
+
+
+def rotate_half(x: torch.Tensor) -> torch.Tensor:
+    tmp_x = rearrange(x, '... (d r) -> ... d r', r=2)
+    x1, x2 = tmp_x.unbind(dim=-1)
+    stack_x = torch.stack((-x2, x1), dim=-1)
+    return rearrange(stack_x, '... d r -> ... (d r)')
+
+
+class RotaryPositionalEmbedding(torch.nn.Module):
+    def __init__(
+        self,
+        theta: float,
+        d_k: int,
+        max_seq_len: int,
+        device: torch.device | None = None,
+    ) -> None:
+        super().__init__()
+        inv_freq = 1.0 / (theta ** (torch.arange(0, d_k, 2, device=device).float() / d_k))
+        t = torch.arange(max_seq_len, device=device)
+        freqs = torch.einsum('i,j->ij', t, inv_freq)
+        emb = rearrange(torch.stack((freqs, freqs), dim=-1), '... d r -> ... (d r)')
+        self.d_k = d_k
+        self.max_seq_len = max_seq_len
+        self.register_buffer("pre_cos", emb.cos(), persistent=False)
+        self.register_buffer("pre_sin", emb.sin(), persistent=False)
+
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        token_positions: torch.Tensor
+    ) -> torch.Tensor:
+        return x * self.pre_cos[token_positions] + rotate_half(x) * self.pre_sin[token_positions]
