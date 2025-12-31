@@ -137,3 +137,17 @@ def Softmax(in_features: torch.Tensor, dim: int) -> torch.Tensor:
     exp = torch.exp(diff)
     total = torch.sum(exp, dim=dim, keepdim=True)
     return exp / total
+
+
+def sdpa(
+    query: torch.Tensor,
+    key: torch.Tensor,
+    value: torch.Tensor,
+    mask: torch.Tensor | None = None,
+) -> torch.Tensor:
+    bias = torch.where(mask, 0.0, float('-inf'))
+    scale_factor = 1 / math.sqrt(query.size(-1))
+    qk = query @ key.transpose(-2, -1) * scale_factor
+    qk += bias
+    weight = Softmax(qk, -1)
+    return weight @ value
