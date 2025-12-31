@@ -9,7 +9,7 @@ import torch
 from jaxtyping import Bool, Float, Int
 from torch import Tensor
 
-from cs336_basics.module import Embedding, Linear, RMSNorm
+from cs336_basics.module import Embedding, Linear, RMSNorm, SwiGLU
 from cs336_basics.tokenizer import Tokenizer
 from cs336_basics.train_bpe import implement_train_bpe
 
@@ -88,7 +88,9 @@ def run_swiglu(
     # swiglu.w1.weight.data = w1_weight
     # swiglu.w2.weight.data = w2_weight
     # swiglu.w3.weight.data = w3_weight
-    raise NotImplementedError
+    swiglu_layer = SwiGLU(d_model=d_model, d_ff=d_ff)
+    swiglu_layer.load_state_dict({"w1": w1_weight, "w2": w2_weight, "w3": w3_weight})
+    return swiglu_layer(in_features)
 
 
 def run_scaled_dot_product_attention(
