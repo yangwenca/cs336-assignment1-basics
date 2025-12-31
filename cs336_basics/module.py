@@ -85,16 +85,17 @@ class SwiGLU(torch.nn.Module):
         super().__init__()
         self.d_model = d_model
         self.d_ff = d_ff
-        self.w1 = torch.nn.Parameter(torch.empty((d_ff, d_model)))
-        self.w2 = torch.nn.Parameter(torch.empty((d_model, d_ff)))
-        self.w3 = torch.nn.Parameter(torch.empty((d_ff, d_model)))
+        self.w1 = Linear(in_features=d_ff, out_features=d_model)
+        self.w2 = Linear(in_features=d_model, out_features=d_ff)
+        self.w3 = Linear(in_features=d_ff, out_features=d_model)
+
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        w1_x = einsum(x, self.w1, "... d_model, d_ff d_model -> ... d_ff")
+        w1_x = self.w1(x)
         sigmoid = torch.sigmoid(w1_x)
-        w3_x = einsum(x, self.w3, "... d_model, d_ff d_model -> ... d_ff")
+        w3_x = self.w3(x)
         value = w1_x * sigmoid * w3_x
-        return einsum(value, self.w2, "... d_ff, d_model d_ff -> ... d_model")
+        return self.w2(value)
 
 
 def rotate_half(x: torch.Tensor) -> torch.Tensor:
@@ -151,3 +152,47 @@ def sdpa(
     qk += bias
     weight = Softmax(qk, -1)
     return weight @ value
+
+
+class Multihead_Self_Attention(torch.nn.Module):
+    def __init__(
+        self,
+        d_model: int,
+        num_heads: int,
+        max_seq_len: int | None = None,
+        theta: float | None = None,
+    ) -> None:
+        super().__init__()
+        self.d_model = d_model
+        self.num_heads = num_heads
+        self.d_head = d_model // num_heads
+        self.rope = RotaryPositionalEmbedding(theta, self.d_head, max_seq_len) if max_seq_len is not None else None
+        self.q_proj_weight = Linear(d_model, d_model)
+        self.k_proj_weight = Linear(d_model, d_model)
+        self.v_proj_weight = Linear(d_model, d_model)
+        self.o_proj_weight = Linear(d_model, d_model)
+
+    def forward(
+        self,
+        in_features: torch.Tensor,
+        token_positions: torch.Tensor | None = None,
+    ) -> torch.Tensor:
+        seq_len = in_features.size(-2)
+        causal_mask = torch.tril(torch.ones(seq_len, seq_len)).bool()
+        key = self.k_proj_weight(in_features)
+        query = self.q_proj_weight(in_features)
+        value = self.v_proj_weight(in_features)
+
+        key = rearrange(key, '... sequence_length (h d_k) -> ... h sequence_length d_k',
+                        h = self.num_heads, d_k = self.d_head)
+        query = rearrange(query, '... sequence_length (h d_k) -> ... h sequence_length d_k',
+                          h = self.num_heads, d_k = self.d_head)
+        if self.rope is not None and token_positions is not None:
+            key = self.rope(key, token_positions)
+            query = self.rope(query, token_positions)
+        value = rearrange(value, '... sequence_length (h d_v) -> ... h sequence_length d_v',
+                          h = self.num_heads, d_v = self.d_head)
+        result = sdpa(key=key, query=query, value=value, mask=causal_mask)
+        result = rearrange(result, '... h sequence_length d_v -> ... sequence_length (h d_v)',
+                          h = self.num_heads, d_v = self.d_head)
+        return self.o_proj_weight(result)
