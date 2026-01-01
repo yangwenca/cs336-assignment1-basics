@@ -91,6 +91,15 @@ class RMSNorm(torch.nn.Module):
         return result.to(in_dtype)
 
 
+"""
+training parameters
+3 * d_model * d_ff
+
+FLOPs:
+6 * batch * seq_len * d_model * d_ff
+"""
+
+
 class SwiGLU(torch.nn.Module):
     def __init__(
         self,
@@ -169,6 +178,19 @@ def sdpa(
     return weight @ value
 
 
+"""
+training parameters
+4 * d_model ** 2
+
+FLOPs:
+8 * batch * seq_len * d_model**2
+sdpa
+4 * batch * seq_len ** 2 * d_model
+total
+8 * batch * seq_len * d_model**2 + 4 * batch * d_model * seq_len**2
+"""
+
+
 class Multihead_Self_Attention(torch.nn.Module):
     def __init__(
         self,
@@ -216,6 +238,20 @@ class Multihead_Self_Attention(torch.nn.Module):
         return self.output_proj(result)
 
 
+"""
+training paramater
+RMSNorm: 2 * d_model
+attn: 4 * d_model ** 2
+ffn: 3 * d_model * d_ff
+
+flops:
+attn
+8 * batch * seq_len * d_model**2 + 4 * batch * d_model * seq_len**2
+ffn
+6 * batch * seq_len * d_model * d_ff
+"""
+
+
 class Transformer_Block(torch.nn.Module):
     def __init__(
         self,
@@ -245,6 +281,108 @@ class Transformer_Block(torch.nn.Module):
         return intermediate + self.ffn(self.ln2(intermediate))
 
 
+"""
+training parameters
+embedding: vocab_size * d_model
+Per Transformer block:
+RMSNorm: 2 * d_model
+attn: 4 * d_model ** 2
+ffn: 3 * d_model * d_ff
+lm norm: d_model
+lm head: d_model * vocab_size
+total = vocab_size * d_model + num_layers * (2 * d_model + 4 * d_model ** 2 + 3 * d_model * d_ff) + d_model + d_model * vocab_size
+= 2 * vocab_size * d_model + num_layers * (2 * d_model + 4 * d_model ** 2 + 3 * d_model * d_ff) + d_model
+
+FLOPs:
+attn
+8 * batch * seq_len * d_model**2 + 4 * batch * d_model * seq_len**2
+ffn
+6 * batch * seq_len * d_model * d_ff
+
+lm head: 2 * batch * seq_len * d_model * vocab_size
+
+total = num_layers * (8 * batch * seq_len * d_model**2 + 4 * batch * d_model * seq_len**2 + 6 * batch * seq_len * d_model * d_ff)
++ 2 * batch * seq_len * d_model * vocab_size
+"""
+
+"""
+Problem (transformer_accounting)
+(a)
+vocab_size : 50,257
+context_length : 1,024
+num_layers : 48
+d_model : 1,600
+num_heads : 25
+d_ff : 6,400
+
+total = 2 * vocab_size * d_model + num_layers * (2 * d_model + 4 * d_model ** 2 + 3 * d_model * d_ff) + d_model
+= 2127057600 ~ 2.13B
+
+each parameter is using single precision floating point
+memory = 2127057600 * 2 ~ 4.25GB
+
+(b) flops
+num_layers * (8 * batch * seq_len * d_model**2 + 4 * batch * d_model * seq_len**2 + 6 * batch * seq_len * d_model * d_ff)
++ 2 * batch * seq_len * d_model * vocab_size
+= 4513336524800 ~ 4.5e12 = 4.5 Tera FLOPs
+
+(c) ffn requires the most FLOPs
+attn: 1.3 Tera FLOPs
+ffn: 3.0 Tera FLOPs
+lm head: 0.1 Tera FLOPs
+
+(d)
+GPT-2 small:
+num_layers = 12
+d_model = 768
+heads = 12
+d_ff = 3072
+
+total: 0.35 Tera FLOPs
+attn: 0.1 Tera FLOPs 29%
+ffn: 0.17 Tera FLOPs 49%
+lm head: 0.08 Tera FLOPs 23%
+
+GPT-2 medium:
+num_layers = 24
+d_model = 1024
+heads = 16
+d_ff = 4096
+
+total: 1.03 Tera FLOPs
+attn: 0.31 Tera FLOPs 30%
+ffn: 0.62 Tera FLOPs 60%
+lm head: 0.1 Tera FLOPs 10%
+
+GPT-2 large:
+num_layers = 36
+d_model = 1280
+heads = 20
+d_ff = 5120
+
+total: 2.26 Tera FLOPs
+attn: 0.68 Tera FLOPs 30%
+ffn: 1.45 Tera FLOPs 64%
+lm head: 0.13 Tera FLOPs 6%
+
+proportion of att stays relative stable, proportion of lm head decreases, proportion of ffn increases
+
+(e)
+GPT-2 XL
+num_layers = 48
+d_model = 1600
+heads = 25
+d_ff = 6400
+
+total: 4.51 Tera FLOPs
+attn: 1.33 Tera FLOPs 29%
+ffn: 3.02 Tera FLOPs 67%
+lm head: 0.16 Tera FLOPs 4%
+
+proportion of att stays relative stable, proportion of lm head decreases, proportion of ffn increases
+"""
+
+
 class Transformer_LM(torch.nn.Module):
     def __init__(
         self,
@@ -255,7 +393,11 @@ class Transformer_LM(torch.nn.Module):
         num_heads: int,
         d_ff: int,
         theta: float,
+        is_normalized: bool = False,
     ) -> None:
+        '''
+        is_normalized: True/False including/excluding softmax
+        '''
         super().__init__()
         self.token_embeddings = Embedding(
             num_embeddings=vocab_size,
@@ -277,10 +419,14 @@ class Transformer_LM(torch.nn.Module):
             in_features=d_model,
             out_features=vocab_size,
         )
+        self.is_normalized = is_normalized
 
 
     def forward(self, in_features: torch.Tensor) -> torch.Tensor:
         tokens = self.token_embeddings(in_features)
         for layer in self.layers:
             tokens = layer(tokens)
-        return self.lm_head(self.ln_final(tokens))
+        result = self.lm_head(self.ln_final(tokens))
+        if self.is_normalized:
+            result = Softmax(result, dim=-1)
+        return result
