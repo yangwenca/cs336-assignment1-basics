@@ -85,6 +85,7 @@ proportion of att stays relative stable, proportion of lm head decreases, propor
 uv run pytest -k test_linear
 uv run pytest -k test_embedding
 uv run pytest -k test_rmsnorm
+uv run pytest -k test_silu
 uv run pytest -k test_swiglu
 uv run pytest -k test_rope
 uv run pytest -k test_softmax_matches_pytorch
@@ -171,6 +172,10 @@ class RMSNorm(torch.nn.Module):
         return result.to(in_dtype)
 
 
+def SiLU(x: torch.Tensor) -> torch.Tensor:
+    return x * torch.sigmoid(x)
+
+
 """
 training parameters
 3 * d_model * d_ff
@@ -198,9 +203,8 @@ class SwiGLU(torch.nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         w1_x = self.w1(x)
-        sigmoid = torch.sigmoid(w1_x)
         w3_x = self.w3(x)
-        value = w1_x * sigmoid * w3_x
+        value = SiLU(w1_x) * w3_x
         return self.w2(value)
 
 
