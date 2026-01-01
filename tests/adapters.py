@@ -9,7 +9,8 @@ import torch
 from jaxtyping import Bool, Float, Int
 from torch import Tensor
 
-from cs336_basics.module import Embedding, Linear, Multihead_Self_Attention, RMSNorm, RotaryPositionalEmbedding, sdpa, Softmax, SwiGLU
+from cs336_basics.module import Embedding, Linear, Multihead_Self_Attention, RMSNorm
+from cs336_basics.module import RotaryPositionalEmbedding, sdpa, Softmax, SwiGLU, Transformer_Block
 from cs336_basics.tokenizer import Tokenizer
 from cs336_basics.train_bpe import implement_train_bpe
 
@@ -89,9 +90,11 @@ def run_swiglu(
     # swiglu.w2.weight.data = w2_weight
     # swiglu.w3.weight.data = w3_weight
     swiglu_layer = SwiGLU(d_model=d_model, d_ff=d_ff)
-    swiglu_layer.w1.weight.data = w1_weight
-    swiglu_layer.w2.weight.data = w2_weight
-    swiglu_layer.w3.weight.data = w3_weight
+    swiglu_layer.load_state_dict({
+        "w1.weight": w1_weight,
+        "w2.weight": w2_weight,
+        "w3.weight": w3_weight,
+    })
     return swiglu_layer(in_features)
 
 
@@ -148,10 +151,12 @@ def run_multihead_self_attention(
         implementation with the given QKV projection weights and input features.
     """
     MSA = Multihead_Self_Attention(d_model, num_heads)
-    MSA.k_proj_weight.weight.data = k_proj_weight
-    MSA.q_proj_weight.weight.data = q_proj_weight
-    MSA.v_proj_weight.weight.data = v_proj_weight
-    MSA.o_proj_weight.weight.data = o_proj_weight
+    MSA.load_state_dict({
+        "k_proj.weight": k_proj_weight,
+        "q_proj.weight": q_proj_weight,
+        "v_proj.weight": v_proj_weight,
+        "output_proj.weight": o_proj_weight,
+    })
     return MSA(in_features)
 
 
@@ -193,10 +198,12 @@ def run_multihead_self_attention_with_rope(
         implementation with the given QKV projection weights and input features.
     """
     MSA = Multihead_Self_Attention(d_model, num_heads, max_seq_len, theta)
-    MSA.k_proj_weight.weight.data = k_proj_weight
-    MSA.q_proj_weight.weight.data = q_proj_weight
-    MSA.v_proj_weight.weight.data = v_proj_weight
-    MSA.o_proj_weight.weight.data = o_proj_weight
+    MSA.load_state_dict({
+        "k_proj.weight": k_proj_weight,
+        "q_proj.weight": q_proj_weight,
+        "v_proj.weight": v_proj_weight,
+        "output_proj.weight": o_proj_weight,
+    })
     return MSA(in_features, token_positions)
 
 
@@ -293,7 +300,15 @@ def run_transformer_block(
         Float[Tensor, "batch sequence_length d_model"] Tensor with the output of
         running the Transformer block on the input features while using RoPE.
     """
-    raise NotImplementedError
+    block = Transformer_Block(
+        d_model=d_model,
+        num_heads=num_heads,
+        d_ff=d_ff,
+        max_seq_len=max_seq_len,
+        theta=theta,
+    )
+    block.load_state_dict(weights)
+    return block(in_features)
 
 
 def run_transformer_lm(

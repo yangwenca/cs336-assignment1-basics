@@ -3,6 +3,20 @@ import math
 import torch
 
 
+'''
+uv run pytest -k test_linear
+uv run pytest -k test_embedding
+uv run pytest -k test_rmsnorm
+uv run pytest -k test_swiglu
+uv run pytest -k test_rope
+uv run pytest -k test_softmax_matches_pytorch
+uv run pytest -k test_scaled_dot_product_attention
+uv run pytest -k test_4d_scaled_dot_product_attention
+uv run pytest -k test_multihead_self_attention
+uv run pytest -k test_transformer_block
+'''
+
+
 class Linear(torch.nn.Module):
     def __init__(
         self,
@@ -85,9 +99,9 @@ class SwiGLU(torch.nn.Module):
         super().__init__()
         self.d_model = d_model
         self.d_ff = d_ff
-        self.w1 = Linear(in_features=d_ff, out_features=d_model)
-        self.w2 = Linear(in_features=d_model, out_features=d_ff)
-        self.w3 = Linear(in_features=d_ff, out_features=d_model)
+        self.w1 = Linear(in_features=d_model, out_features=d_ff)
+        self.w2 = Linear(in_features=d_ff, out_features=d_model)
+        self.w3 = Linear(in_features=d_model, out_features=d_ff)
 
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -167,10 +181,11 @@ class Multihead_Self_Attention(torch.nn.Module):
         self.num_heads = num_heads
         self.d_head = d_model // num_heads
         self.rope = RotaryPositionalEmbedding(theta, self.d_head, max_seq_len) if max_seq_len is not None else None
-        self.q_proj_weight = Linear(d_model, d_model)
-        self.k_proj_weight = Linear(d_model, d_model)
-        self.v_proj_weight = Linear(d_model, d_model)
-        self.o_proj_weight = Linear(d_model, d_model)
+        self.q_proj = Linear(d_model, d_model)
+        self.k_proj = Linear(d_model, d_model)
+        self.v_proj = Linear(d_model, d_model)
+        self.output_proj = Linear(d_model, d_model)
+
 
     def forward(
         self,
@@ -179,15 +194,17 @@ class Multihead_Self_Attention(torch.nn.Module):
     ) -> torch.Tensor:
         seq_len = in_features.size(-2)
         causal_mask = torch.tril(torch.ones(seq_len, seq_len)).bool()
-        key = self.k_proj_weight(in_features)
-        query = self.q_proj_weight(in_features)
-        value = self.v_proj_weight(in_features)
+        key = self.k_proj(in_features)
+        query = self.q_proj(in_features)
+        value = self.v_proj(in_features)
 
         key = rearrange(key, '... sequence_length (h d_k) -> ... h sequence_length d_k',
                         h = self.num_heads, d_k = self.d_head)
         query = rearrange(query, '... sequence_length (h d_k) -> ... h sequence_length d_k',
                           h = self.num_heads, d_k = self.d_head)
-        if self.rope is not None and token_positions is not None:
+        if self.rope is not None:
+            if token_positions is None:
+                token_positions = torch.arange(seq_len)
             key = self.rope(key, token_positions)
             query = self.rope(query, token_positions)
         value = rearrange(value, '... sequence_length (h d_v) -> ... h sequence_length d_v',
@@ -195,4 +212,32 @@ class Multihead_Self_Attention(torch.nn.Module):
         result = sdpa(key=key, query=query, value=value, mask=causal_mask)
         result = rearrange(result, '... h sequence_length d_v -> ... sequence_length (h d_v)',
                           h = self.num_heads, d_v = self.d_head)
-        return self.o_proj_weight(result)
+        return self.output_proj(result)
+
+
+class Transformer_Block(torch.nn.Module):
+    def __init__(
+        self,
+        d_model: int,
+        num_heads: int,
+        d_ff: int,
+        max_seq_len: int,
+        theta: float,
+    ) -> None:
+        super().__init__()
+        self.ln1 = RMSNorm(d_model)
+        self.ln2 = RMSNorm(d_model)
+        self.attn = Multihead_Self_Attention(
+            d_model=d_model,
+            num_heads=num_heads,
+            max_seq_len=max_seq_len,
+            theta=theta,
+        )
+        self.ffn = SwiGLU(
+            d_model=d_model,
+            d_ff=d_ff,
+        )
+
+    def forward(self, in_features: torch.Tensor) -> torch.Tensor:
+        intermediate = in_features + self.attn(self.ln1(in_features))
+        return intermediate + self.ffn(self.ln2(intermediate))
