@@ -407,13 +407,9 @@ class Transformer_LM(torch.nn.Module):
         num_heads: int,
         d_ff: int,
         theta: float,
-        is_normalized: bool = False,
         device: torch.device | None = None,
         dtype: torch.dtype | None = None,
     ) -> None:
-        """
-        is_normalized: True/False including/excluding softmax
-        """
         super().__init__()
         self.token_embeddings = Embedding(
             num_embeddings=vocab_size,
@@ -441,14 +437,10 @@ class Transformer_LM(torch.nn.Module):
             device=device,
             dtype=dtype,
         )
-        self.is_normalized = is_normalized
 
 
     def forward(self, in_features: torch.Tensor) -> torch.Tensor:
         tokens = self.token_embeddings(in_features)
         for layer in self.layers:
             tokens = layer(tokens)
-        result = self.lm_head(self.ln_final(tokens))
-        if self.is_normalized:
-            result = Softmax(result, dim=-1)
-        return result
+        return self.lm_head(self.ln_final(tokens))
