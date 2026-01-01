@@ -3,6 +3,84 @@ import math
 import torch
 
 
+"""
+Problem (transformer_accounting)
+(a)
+vocab_size : 50,257
+context_length : 1,024
+num_layers : 48
+d_model : 1,600
+num_heads : 25
+d_ff : 6,400
+
+total = 2 * vocab_size * d_model + num_layers * (2 * d_model + 4 * d_model ** 2 + 3 * d_model * d_ff) + d_model
+= 2127057600 ~ 2.13B
+
+each parameter is using single precision floating point
+memory = 2127057600 * 2 ~ 4.25GB
+
+(b) flops
+num_layers * (8 * batch * seq_len * d_model**2 + 4 * batch * d_model * seq_len**2 + 6 * batch * seq_len * d_model * d_ff)
++ 2 * batch * seq_len * d_model * vocab_size
+= 4513336524800 ~ 4.5e12 = 4.5 Tera FLOPs
+
+(c) ffn requires the most FLOPs
+attn: 1.3 Tera FLOPs
+ffn: 3.0 Tera FLOPs
+lm head: 0.1 Tera FLOPs
+
+(d)
+GPT-2 small:
+num_layers = 12
+d_model = 768
+heads = 12
+d_ff = 3072
+
+total: 0.35 Tera FLOPs
+attn: 0.1 Tera FLOPs 29%
+ffn: 0.17 Tera FLOPs 49%
+lm head: 0.08 Tera FLOPs 23%
+
+GPT-2 medium:
+num_layers = 24
+d_model = 1024
+heads = 16
+d_ff = 4096
+
+total: 1.03 Tera FLOPs
+attn: 0.31 Tera FLOPs 30%
+ffn: 0.62 Tera FLOPs 60%
+lm head: 0.1 Tera FLOPs 10%
+
+GPT-2 large:
+num_layers = 36
+d_model = 1280
+heads = 20
+d_ff = 5120
+
+total: 2.26 Tera FLOPs
+attn: 0.68 Tera FLOPs 30%
+ffn: 1.45 Tera FLOPs 64%
+lm head: 0.13 Tera FLOPs 6%
+
+proportion of att stays relative stable, proportion of lm head decreases, proportion of ffn increases
+
+(e)
+GPT-2 XL
+num_layers = 48
+d_model = 1600
+heads = 25
+d_ff = 6400
+
+total: 4.51 Tera FLOPs
+attn: 1.33 Tera FLOPs 29%
+ffn: 3.02 Tera FLOPs 67%
+lm head: 0.16 Tera FLOPs 4%
+
+proportion of att stays relative stable, proportion of lm head decreases, proportion of ffn increases
+"""
+
+
 '''
 uv run pytest -k test_linear
 uv run pytest -k test_embedding
@@ -105,13 +183,15 @@ class SwiGLU(torch.nn.Module):
         self,
         d_model: int,
         d_ff: int,
+        device: torch.device | None = None,
+        dtype: torch.dtype | None = None,
     ) -> None:
         super().__init__()
         self.d_model = d_model
         self.d_ff = d_ff
-        self.w1 = Linear(in_features=d_model, out_features=d_ff)
-        self.w2 = Linear(in_features=d_ff, out_features=d_model)
-        self.w3 = Linear(in_features=d_model, out_features=d_ff)
+        self.w1 = Linear(in_features=d_model, out_features=d_ff, device=device, dtype=dtype)
+        self.w2 = Linear(in_features=d_ff, out_features=d_model, device=device, dtype=dtype)
+        self.w3 = Linear(in_features=d_model, out_features=d_ff, device=device, dtype=dtype)
 
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -198,16 +278,18 @@ class Multihead_Self_Attention(torch.nn.Module):
         num_heads: int,
         max_seq_len: int | None = None,
         theta: float | None = None,
+        device: torch.device | None = None,
+        dtype: torch.dtype | None = None,
     ) -> None:
         super().__init__()
         self.d_model = d_model
         self.num_heads = num_heads
         self.d_head = d_model // num_heads
         self.rope = RotaryPositionalEmbedding(theta, self.d_head, max_seq_len) if max_seq_len is not None else None
-        self.q_proj = Linear(d_model, d_model)
-        self.k_proj = Linear(d_model, d_model)
-        self.v_proj = Linear(d_model, d_model)
-        self.output_proj = Linear(d_model, d_model)
+        self.q_proj = Linear(in_features=d_model, out_features=d_model, device=device, dtype=dtype)
+        self.k_proj = Linear(in_features=d_model, out_features=d_model, device=device, dtype=dtype)
+        self.v_proj = Linear(in_features=d_model, out_features=d_model, device=device, dtype=dtype)
+        self.output_proj = Linear(in_features=d_model, out_features=d_model, device=device, dtype=dtype)
 
 
     def forward(
@@ -260,19 +342,25 @@ class Transformer_Block(torch.nn.Module):
         d_ff: int,
         max_seq_len: int,
         theta: float,
+        device: torch.device | None = None,
+        dtype: torch.dtype | None = None,
     ) -> None:
         super().__init__()
-        self.ln1 = RMSNorm(d_model)
-        self.ln2 = RMSNorm(d_model)
+        self.ln1 = RMSNorm(d_model=d_model, device=device, dtype=dtype)
+        self.ln2 = RMSNorm(d_model=d_model, device=device, dtype=dtype)
         self.attn = Multihead_Self_Attention(
             d_model=d_model,
             num_heads=num_heads,
             max_seq_len=max_seq_len,
             theta=theta,
+            device=device,
+            dtype=dtype,
         )
         self.ffn = SwiGLU(
             d_model=d_model,
             d_ff=d_ff,
+            device=device,
+            dtype=dtype,
         )
 
 
@@ -305,83 +393,6 @@ total = num_layers * (8 * batch * seq_len * d_model**2 + 4 * batch * d_model * s
 + 2 * batch * seq_len * d_model * vocab_size
 """
 
-"""
-Problem (transformer_accounting)
-(a)
-vocab_size : 50,257
-context_length : 1,024
-num_layers : 48
-d_model : 1,600
-num_heads : 25
-d_ff : 6,400
-
-total = 2 * vocab_size * d_model + num_layers * (2 * d_model + 4 * d_model ** 2 + 3 * d_model * d_ff) + d_model
-= 2127057600 ~ 2.13B
-
-each parameter is using single precision floating point
-memory = 2127057600 * 2 ~ 4.25GB
-
-(b) flops
-num_layers * (8 * batch * seq_len * d_model**2 + 4 * batch * d_model * seq_len**2 + 6 * batch * seq_len * d_model * d_ff)
-+ 2 * batch * seq_len * d_model * vocab_size
-= 4513336524800 ~ 4.5e12 = 4.5 Tera FLOPs
-
-(c) ffn requires the most FLOPs
-attn: 1.3 Tera FLOPs
-ffn: 3.0 Tera FLOPs
-lm head: 0.1 Tera FLOPs
-
-(d)
-GPT-2 small:
-num_layers = 12
-d_model = 768
-heads = 12
-d_ff = 3072
-
-total: 0.35 Tera FLOPs
-attn: 0.1 Tera FLOPs 29%
-ffn: 0.17 Tera FLOPs 49%
-lm head: 0.08 Tera FLOPs 23%
-
-GPT-2 medium:
-num_layers = 24
-d_model = 1024
-heads = 16
-d_ff = 4096
-
-total: 1.03 Tera FLOPs
-attn: 0.31 Tera FLOPs 30%
-ffn: 0.62 Tera FLOPs 60%
-lm head: 0.1 Tera FLOPs 10%
-
-GPT-2 large:
-num_layers = 36
-d_model = 1280
-heads = 20
-d_ff = 5120
-
-total: 2.26 Tera FLOPs
-attn: 0.68 Tera FLOPs 30%
-ffn: 1.45 Tera FLOPs 64%
-lm head: 0.13 Tera FLOPs 6%
-
-proportion of att stays relative stable, proportion of lm head decreases, proportion of ffn increases
-
-(e)
-GPT-2 XL
-num_layers = 48
-d_model = 1600
-heads = 25
-d_ff = 6400
-
-total: 4.51 Tera FLOPs
-attn: 1.33 Tera FLOPs 29%
-ffn: 3.02 Tera FLOPs 67%
-lm head: 0.16 Tera FLOPs 4%
-
-proportion of att stays relative stable, proportion of lm head decreases, proportion of ffn increases
-"""
-
 
 class Transformer_LM(torch.nn.Module):
     def __init__(
@@ -394,6 +405,8 @@ class Transformer_LM(torch.nn.Module):
         d_ff: int,
         theta: float,
         is_normalized: bool = False,
+        device: torch.device | None = None,
+        dtype: torch.dtype | None = None,
     ) -> None:
         '''
         is_normalized: True/False including/excluding softmax
@@ -402,6 +415,8 @@ class Transformer_LM(torch.nn.Module):
         self.token_embeddings = Embedding(
             num_embeddings=vocab_size,
             embedding_dim=d_model,
+            device=device,
+            dtype=dtype,
         )
         self.layers = torch.nn.ModuleList(
             [
@@ -411,6 +426,8 @@ class Transformer_LM(torch.nn.Module):
                     d_ff=d_ff,
                     max_seq_len=context_length,
                     theta=theta,
+                    device=device,
+                    dtype=dtype,
                 ) for _ in range(num_layers)
             ]
         )
