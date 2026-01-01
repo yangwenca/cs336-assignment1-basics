@@ -9,8 +9,8 @@ import torch
 from jaxtyping import Bool, Float, Int
 from torch import Tensor
 
-from cs336_basics.module import Embedding, Linear, Multihead_Self_Attention, RMSNorm
-from cs336_basics.module import RotaryPositionalEmbedding, sdpa, Softmax, SwiGLU, Transformer_Block
+from cs336_basics.module import Embedding, Linear, Multihead_Self_Attention, RMSNorm, RotaryPositionalEmbedding
+from cs336_basics.module import sdpa, Softmax, SwiGLU, Transformer_Block, Transformer_LM
 from cs336_basics.tokenizer import Tokenizer
 from cs336_basics.train_bpe import implement_train_bpe
 
@@ -390,7 +390,17 @@ def run_transformer_lm(
         Float[Tensor, "batch_size sequence_length vocab_size"]: Tensor with the predicted unnormalized
         next-word distribution for each token.
     """
-    raise NotImplementedError
+    lm = Transformer_LM(
+        vocab_size=vocab_size,
+        context_length=context_length,
+        d_model=d_model,
+        num_layers=num_layers,
+        num_heads=num_heads,
+        d_ff=d_ff,
+        theta=rope_theta,
+    )
+    lm.load_state_dict(weights)
+    return lm(in_indices)
 
 
 def run_rmsnorm(

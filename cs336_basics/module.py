@@ -14,6 +14,7 @@ uv run pytest -k test_scaled_dot_product_attention
 uv run pytest -k test_4d_scaled_dot_product_attention
 uv run pytest -k test_multihead_self_attention
 uv run pytest -k test_transformer_block
+uv run pytest -k test_transformer_lm
 '''
 
 
@@ -238,6 +239,48 @@ class Transformer_Block(torch.nn.Module):
             d_ff=d_ff,
         )
 
+
     def forward(self, in_features: torch.Tensor) -> torch.Tensor:
         intermediate = in_features + self.attn(self.ln1(in_features))
         return intermediate + self.ffn(self.ln2(intermediate))
+
+
+class Transformer_LM(torch.nn.Module):
+    def __init__(
+        self,
+        vocab_size: int,
+        context_length: int,
+        d_model: int,
+        num_layers: int,
+        num_heads: int,
+        d_ff: int,
+        theta: float,
+    ) -> None:
+        super().__init__()
+        self.token_embeddings = Embedding(
+            num_embeddings=vocab_size,
+            embedding_dim=d_model,
+        )
+        self.layers = torch.nn.ModuleList(
+            [
+                Transformer_Block(
+                    d_model=d_model,
+                    num_heads=num_heads,
+                    d_ff=d_ff,
+                    max_seq_len=context_length,
+                    theta=theta,
+                ) for _ in range(num_layers)
+            ]
+        )
+        self.ln_final = RMSNorm(d_model = d_model)
+        self.lm_head = Linear(
+            in_features=d_model,
+            out_features=vocab_size,
+        )
+
+
+    def forward(self, in_features: torch.Tensor) -> torch.Tensor:
+        tokens = self.token_embeddings(in_features)
+        for layer in self.layers:
+            tokens = layer(tokens)
+        return self.lm_head(self.ln_final(tokens))
