@@ -81,7 +81,7 @@ proportion of att stays relative stable, proportion of lm head decreases, propor
 """
 
 
-'''
+"""
 uv run pytest -k test_linear
 uv run pytest -k test_embedding
 uv run pytest -k test_rmsnorm
@@ -93,7 +93,7 @@ uv run pytest -k test_4d_scaled_dot_product_attention
 uv run pytest -k test_multihead_self_attention
 uv run pytest -k test_transformer_block
 uv run pytest -k test_transformer_lm
-'''
+"""
 
 
 class Linear(torch.nn.Module):
@@ -411,9 +411,9 @@ class Transformer_LM(torch.nn.Module):
         device: torch.device | None = None,
         dtype: torch.dtype | None = None,
     ) -> None:
-        '''
+        """
         is_normalized: True/False including/excluding softmax
-        '''
+        """
         super().__init__()
         self.token_embeddings = Embedding(
             num_embeddings=vocab_size,
