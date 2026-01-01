@@ -116,7 +116,9 @@ class Linear(torch.nn.Module):
 
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return einsum(x, self.weight, "... d_in, d_out d_in -> ... d_out")
+        # MPS has bugs on this op
+        # return einsum(x, self.weight, "... d_in, d_out d_in -> ... d_out")
+        return x @ self.weight.T
 
 
 class Embedding(torch.nn.Module):
@@ -285,7 +287,7 @@ class Multihead_Self_Attention(torch.nn.Module):
         self.d_model = d_model
         self.num_heads = num_heads
         self.d_head = d_model // num_heads
-        self.rope = RotaryPositionalEmbedding(theta, self.d_head, max_seq_len) if max_seq_len is not None else None
+        self.rope = RotaryPositionalEmbedding(theta, self.d_head, max_seq_len, device) if max_seq_len is not None else None
         self.q_proj = Linear(in_features=d_model, out_features=d_model, device=device, dtype=dtype)
         self.k_proj = Linear(in_features=d_model, out_features=d_model, device=device, dtype=dtype)
         self.v_proj = Linear(in_features=d_model, out_features=d_model, device=device, dtype=dtype)
@@ -297,8 +299,9 @@ class Multihead_Self_Attention(torch.nn.Module):
         in_features: torch.Tensor,
         token_positions: torch.Tensor | None = None,
     ) -> torch.Tensor:
+        device = in_features.device
         seq_len = in_features.size(-2)
-        causal_mask = torch.tril(torch.ones(seq_len, seq_len)).bool()
+        causal_mask = torch.tril(torch.ones(seq_len, seq_len, device=device)).bool()
         key = self.k_proj(in_features)
         query = self.q_proj(in_features)
         value = self.v_proj(in_features)
@@ -309,7 +312,7 @@ class Multihead_Self_Attention(torch.nn.Module):
                           h = self.num_heads, d_k = self.d_head)
         if self.rope is not None:
             if token_positions is None:
-                token_positions = torch.arange(seq_len)
+                token_positions = torch.arange(seq_len, device=device)
             key = self.rope(key, token_positions)
             query = self.rope(query, token_positions)
         value = rearrange(value, '... sequence_length (h d_v) -> ... h sequence_length d_v',
@@ -431,10 +434,12 @@ class Transformer_LM(torch.nn.Module):
                 ) for _ in range(num_layers)
             ]
         )
-        self.ln_final = RMSNorm(d_model = d_model)
+        self.ln_final = RMSNorm(d_model=d_model, device=device, dtype=dtype)
         self.lm_head = Linear(
             in_features=d_model,
             out_features=vocab_size,
+            device=device,
+            dtype=dtype,
         )
         self.is_normalized = is_normalized
 

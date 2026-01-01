@@ -398,9 +398,14 @@ def run_transformer_lm(
         num_heads=num_heads,
         d_ff=d_ff,
         theta=rope_theta,
+        device="mps",
     )
     lm.load_state_dict(weights)
-    return lm(in_indices)
+    mps_ans = lm(in_indices.to("mps")).to("cpu")
+    lm.to("cpu")
+    cpu_ans = lm(in_indices)
+    assert torch.allclose(mps_ans, cpu_ans, rtol=0.01, atol=0.0001)
+    return cpu_ans
 
 
 def run_rmsnorm(
