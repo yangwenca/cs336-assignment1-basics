@@ -1,6 +1,7 @@
 import os
 import typing
 
+import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 import torch
@@ -72,3 +73,33 @@ def estimate_loss(model, data, batch_size, context_length, device, eval_iters):
         losses += loss.item()
 
     return losses / eval_iters
+
+
+def plot_losses(steps, train_losses, val_losses, lr, out_dir):
+    os.makedirs(out_dir, exist_ok=True)
+
+    plt.figure(figsize=(8, 5))
+
+    plt.plot(steps, train_losses, label="Training Loss")
+    plt.plot(
+        steps,
+        val_losses,
+        label="Validation Loss",
+    )
+
+    plt.xlabel("Training Steps")
+    plt.ylabel("Loss")
+
+    # learning rate shown in legend
+    lr_label = f"LR={lr:.2e}"
+    plt.title(f"Training & Validation Loss ({lr_label})")
+
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+
+    out_path = os.path.join(out_dir, f"loss_curve_{lr:.2e}.png")
+    plt.savefig(out_path)
+    plt.close()
+
+    print(f"Saved loss plot to {out_path}")

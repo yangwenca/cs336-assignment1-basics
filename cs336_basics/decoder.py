@@ -61,7 +61,7 @@ def test_decode() -> None:
     theta= 10000
     eos_token = "<|endoftext|>"
 
-    TinyStoriesTokenzier = Tokenizer.from_files(
+    myTokenzier = Tokenizer.from_files(
         vocab_filepath=prefix + "TinyStoriesV2-GPT4-train_vocab.pkl",
         merges_filepath=prefix + "TinyStoriesV2-GPT4-train_merge.pkl",
         special_tokens=[eos_token],
@@ -76,11 +76,12 @@ def test_decode() -> None:
         d_ff=d_ff,
         theta=theta,
     )
-    prompt = torch.tensor([[2, 3, 4, 89]], dtype=torch.int32)
+    prompt = myTokenzier.encode("today is a sunny day")
+    inputs = torch.tensor([prompt], dtype=torch.int32)
     ans = decode(
         model=model,
-        tokenizer=TinyStoriesTokenzier,
-        prompt=prompt,
+        tokenizer=myTokenzier,
+        prompt=inputs,
         max_token=50,
         temperatue=1.0,
         eos_token=eos_token,

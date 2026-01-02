@@ -5,13 +5,13 @@ import time
 import numpy as np
 import torch
 
-from cs336_basics.data import estimate_loss, get_batch, load_checkpoint, save_checkpoint
+from cs336_basics.data import estimate_loss, get_batch, load_checkpoint, plot_losses, save_checkpoint
 from cs336_basics.module import Transformer_LM
 from cs336_basics.optimizer import AdamW, CrossEntropy, get_lr_cosine_schedule, gradient_clipping
 
 
 """
-uv run python3 main.py --train_data /Users/YangWen/Documents/Code/github/assignment1-basics/data/TinyStoriesV2-GPT4-train-id.npy --val_data /Users/YangWen/Documents/Code/github/assignment1-basics/data/TinyStoriesV2-GPT4-valid-id.npy --vocab_size 10000
+python3 main.py --train_data /workspace/yang.wen@xiaopeng.com/fm/xpilot_vision/cs336_basics/data/TinyStoriesV2-GPT4-train-id.npy --val_data /workspace/yang.wen@xiaopeng.com/fm/xpilot_vision/cs336_basics/data/TinyStoriesV2-GPT4-valid-id.npy --vocab_size 10000
 """
 
 
@@ -50,6 +50,10 @@ def main(args):
 
     t0 = time.time()
 
+    train_losses = []
+    val_losses = []
+    steps = []
+
     for it in range(start_iter, args.max_iters):
 
         lr = get_lr_cosine_schedule(
@@ -82,17 +86,19 @@ def main(args):
         optimizer.step()
 
         # Logging
-        if it % args.log_interval == 0 and it != 0:
+        if it % args.log_interval == 0:
             dt = time.time() - t0
             print(
                 f"iter {it:6d} | "
                 f"train loss {loss.detach().item():.4f} | "
                 f"time {dt:.2f}s"
             )
+            steps.append(it)
+            train_losses.append(loss.detach().item())
             t0 = time.time()
 
         # Validation
-        if it % args.eval_interval == 0 and it > 0:
+        if it % args.eval_interval == 0:
             model.eval()
             val_loss = estimate_loss(
                 model,
@@ -103,15 +109,17 @@ def main(args):
                 args.eval_iters,
             )
             model.train()
+            val_losses.append(val_loss)
             print(f"iter {it:6d} | val loss {val_loss:.4f}")
 
         # Checkpointing
-        if it % args.ckpt_interval == 0 and it > 0:
+        if it % args.ckpt_interval == 0:
             ckpt_path = os.path.join(args.ckpt_dir, f"ckpt_{it}.pt")
             save_checkpoint(model, optimizer, it, ckpt_path)
             print(f"Saved checkpoint to {ckpt_path}")
 
     print("Training complete.")
+    plot_losses(steps, train_losses, val_losses, args.max_lr, args.plot_dir)
 
 
 # ------------------------------------------------------------
@@ -148,13 +156,16 @@ if __name__ == "__main__":
 
     # Logging / eval
     parser.add_argument("--log_interval", type=int, default=10)
-    parser.add_argument("--eval_interval", type=int, default=50)
+    parser.add_argument("--eval_interval", type=int, default=10)
     parser.add_argument("--eval_iters", type=int, default=2)
 
     # Checkpoints
     parser.add_argument("--ckpt_dir", type=str, default="checkpoints")
     parser.add_argument("--ckpt_interval", type=int, default=50)
     parser.add_argument("--resume", type=str, default=None)
+
+    # Plots
+    parser.add_argument("--plot_dir", type=str, default="plots")
 
     # Device
     parser.add_argument("--device", type=str, default="cpu")
