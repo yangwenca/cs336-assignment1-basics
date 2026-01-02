@@ -7,6 +7,8 @@ import math
 """
 uv run pytest -k test_cross_entropy
 uv run pytest -k test_adamw
+uv run pytest -k test_get_lr_cosine_schedule
+uv run pytest -k test_gradient_clipping
 """
 
 def CrossEntropy(inputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
@@ -271,3 +273,15 @@ def get_lr_cosine_schedule(
     return min_learning_rate + \
             0.5 * (1 + math.cos((it - warmup_iters) / (cosine_cycle_iters - warmup_iters) * math.pi)) * \
             (max_learning_rate - min_learning_rate)
+
+
+def gradient_clipping(parameters: Iterable[torch.nn.Parameter], max_l2_norm: float) -> None:
+    EPS = 1e-6
+    norms = torch.Tensor([torch.linalg.vector_norm(p.grad, 2.0) for p in parameters if p.grad is not None])
+    total_norm = torch.linalg.vector_norm(norms, 2.0)
+    ratio = max_l2_norm / (total_norm + EPS)
+    clip_ratio = torch.clamp(ratio, max=1.0)
+    for p in parameters:
+        if p.grad is None:
+            continue
+        p.grad *= clip_ratio
