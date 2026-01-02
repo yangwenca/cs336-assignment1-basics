@@ -5,9 +5,9 @@ import time
 import numpy as np
 import torch
 
-from cs336_basics.loop import estimate_loss, get_batch, get_lr_cosine_schedule, gradient_clipping, load_checkpoint, save_checkpoint
+from cs336_basics.data import estimate_loss, get_batch, load_checkpoint, save_checkpoint
 from cs336_basics.module import Transformer_LM
-from cs336_basics.training import AdamW, CrossEntropy, get_lr_cosine_schedule, gradient_clipping
+from cs336_basics.optimizer import AdamW, CrossEntropy, get_lr_cosine_schedule, gradient_clipping
 
 
 """
@@ -86,7 +86,7 @@ def main(args):
             dt = time.time() - t0
             print(
                 f"iter {it:6d} | "
-                f"train loss {loss.item():.4f} | "
+                f"train loss {loss.detach().item():.4f} | "
                 f"time {dt:.2f}s"
             )
             t0 = time.time()

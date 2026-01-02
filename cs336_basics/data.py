@@ -1,14 +1,11 @@
-import argparse
 import os
-import time
 import typing
 
 import numpy as np
 import numpy.typing as npt
 import torch
 
-from cs336_basics.module import Transformer_LM
-from cs336_basics.training import AdamW, CrossEntropy, get_lr_cosine_schedule, gradient_clipping
+from cs336_basics.optimizer import CrossEntropy
 
 """
 uv run pytest -k test_get_batch
