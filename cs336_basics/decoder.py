@@ -87,4 +87,4 @@ def test_decode() -> None:
     )
     print(ans)
 
-test_decode()
+# test_decode()
