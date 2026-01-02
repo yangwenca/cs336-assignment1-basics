@@ -68,7 +68,6 @@ def load_checkpoint(
 
 @torch.no_grad()
 def estimate_loss(model, data, batch_size, context_length, device, eval_iters):
-    model.eval()
     losses = 0
 
     for _ in range(eval_iters):
@@ -77,7 +76,6 @@ def estimate_loss(model, data, batch_size, context_length, device, eval_iters):
         loss = CrossEntropy(logits, y)
         losses += loss.item()
 
-    model.train()
     return losses / eval_iters
 
 
@@ -159,6 +157,7 @@ def main(args):
 
         # Validation
         if it % args.eval_interval == 0 and it > 0:
+            model.eval()
             val_loss = estimate_loss(
                 model,
                 val_data,
@@ -167,6 +166,7 @@ def main(args):
                 device,
                 args.eval_iters,
             )
+            model.train()
             print(f"iter {it:6d} | val loss {val_loss:.4f}")
 
         # Checkpointing
