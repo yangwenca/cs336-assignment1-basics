@@ -24,7 +24,7 @@ class Tokenizer:
         vocab_filepath: str,
         merges_filepath: str,
         special_tokens: list[str] | None = None,
-    ):
+    ) -> "Tokenizer":
         try:
             with open(vocab_filepath, "rb") as f:
                 vocab = pickle.load(f)

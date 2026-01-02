@@ -85,6 +85,7 @@ proportion of att stays relative stable, proportion of lm head decreases, propor
 uv run pytest -k test_linear
 uv run pytest -k test_embedding
 uv run pytest -k test_rmsnorm
+uv run pytest -k test_silu
 uv run pytest -k test_swiglu
 uv run pytest -k test_rope
 uv run pytest -k test_softmax_matches_pytorch
@@ -171,6 +172,10 @@ class RMSNorm(torch.nn.Module):
         return result.to(in_dtype)
 
 
+def SiLU(x: torch.Tensor) -> torch.Tensor:
+    return x * torch.sigmoid(x)
+
+
 """
 training parameters
 3 * d_model * d_ff
@@ -198,9 +203,8 @@ class SwiGLU(torch.nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         w1_x = self.w1(x)
-        sigmoid = torch.sigmoid(w1_x)
         w3_x = self.w3(x)
-        value = w1_x * sigmoid * w3_x
+        value = SiLU(w1_x) * w3_x
         return self.w2(value)
 
 
@@ -407,13 +411,9 @@ class Transformer_LM(torch.nn.Module):
         num_heads: int,
         d_ff: int,
         theta: float,
-        is_normalized: bool = False,
         device: torch.device | None = None,
         dtype: torch.dtype | None = None,
     ) -> None:
-        """
-        is_normalized: True/False including/excluding softmax
-        """
         super().__init__()
         self.token_embeddings = Embedding(
             num_embeddings=vocab_size,
@@ -441,14 +441,10 @@ class Transformer_LM(torch.nn.Module):
             device=device,
             dtype=dtype,
         )
-        self.is_normalized = is_normalized
 
 
     def forward(self, in_features: torch.Tensor) -> torch.Tensor:
         tokens = self.token_embeddings(in_features)
         for layer in self.layers:
             tokens = layer(tokens)
-        result = self.lm_head(self.ln_final(tokens))
-        if self.is_normalized:
-            result = Softmax(result, dim=-1)
-        return result
+        return self.lm_head(self.ln_final(tokens))
