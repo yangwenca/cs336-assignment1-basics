@@ -23,7 +23,7 @@ def get_batch(
     assert len(dataset) > context_length
 
     # sample random starting indices
-    max_start = len(dataset) - context_length - 1
+    max_start = len(dataset) - context_length
     starts = np.random.randint(0, max_start, size=batch_size)
 
     # collect sequences
