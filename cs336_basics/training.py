@@ -18,7 +18,7 @@ def CrossEntropy(inputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
     max_value, _ = torch.max(inputs, dim=dim, keepdim=True)
     sub = inputs - max_value
     total = torch.log(torch.sum(torch.exp(sub), dim=dim, keepdim=True))
-    diff = torch.gather(sub, dim=dim, index=targets.unsqueeze(dim))
+    diff = torch.gather(sub, dim=dim, index=targets.unsqueeze(dim).to(torch.int64))
     loss = (total - diff).squeeze(dim)
     return torch.mean(loss)
 
