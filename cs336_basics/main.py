@@ -18,6 +18,38 @@ uv run python3 main.py --train_data /workspace/yang.wen@xiaopeng.com/fm/xpilot_v
 uv run python3 main.py --train_data /Users/YangWen/Documents/Code/github/assignment1-basics/data/TinyStoriesV2-GPT4-train-id.npy --val_data /Users/YangWen/Documents/Code/github/assignment1-basics/data/TinyStoriesV2-GPT4-valid-id.npy --vocab_size 10000 --device mps --decoder --vocab_filepath /Users/YangWen/Documents/Code/github/assignment1-basics/data/TinyStoriesV2-GPT4-train_vocab.pkl --merges_filepath /Users/YangWen/Documents/Code/github/assignment1-basics/data/TinyStoriesV2-GPT4-train_merge.pkl --resume /Users/YangWen/Documents/Code/github/assignment1-basics/cs336_basics/checkpoints/ckpt_50.pt
 """
 
+"""
+7.2
+learning rate
+batch_size = 512
+(a)
+3e-4 final loss 1.4157 (10k steps) 1.5021 (5k steps)
+5e-4 final loss 1.4229 (5k steps)
+1e-3 final loss 1.3756 (5k steps)
+5e-3 final loss 1.3697 (2.5k steps)
+1e-1 final loss 3.22 (2.5k steps)
+if it is less than 5e-3, it converges very slowly.
+(b)
+if it is large than 1e-1, it diverges
+The edge of stability is the largest LR that does not diverge.
+Divergence occurs when effective step size exceeds curvature limites.
+
+batch_size experiment
+small batch size -> noisy gradients
+large batch size -> low noise gradients
+linear scaling rule or square root scaling rule
+
+generate
+Today is a sunny day, we are going to the park today!" Sam agreed and they both smiled.
+The sky was blue and the sun was shining. Tim and Sam watched the clouds as the sky got pink and orange. After playing, they looked up at the sky and said, "Wow, it's so pretty!"
+Suddenly, a loud noise came from the sky. It was a plane falling down! Tim and Sam ran to see it. They watched as the plane hit the clouds. They felt dizzy.
+Tim said, "I think the plane did fall!" Sam said, "Yes, it did! We got so dizzy!" They laughed and watched the plane fly away. They had a fun day at the park, even without the big, black plane.
+<|endoftext|>
+
+7.3
+ablation 1
+
+"""
 
 def main(args):
     device = torch.device(args.device)
@@ -45,6 +77,7 @@ def main(args):
         eps=args.eps,
     )
 
+    model = torch.compile(model)
     start_iter = 0
     if args.resume is not None:
         start_iter = load_checkpoint(args.resume, model, optimizer)
