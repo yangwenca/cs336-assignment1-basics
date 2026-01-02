@@ -13,6 +13,8 @@ from cs336_basics.training import AdamW, CrossEntropy, get_lr_cosine_schedule, g
 """
 uv run pytest -k test_get_batch
 uv run pytest -k test_checkpointing
+
+uv run python3 loop.py --train_data /Users/YangWen/Documents/Code/github/assignment1-basics/data/TinyStoriesV2-GPT4-train-id.npy --val_data /Users/YangWen/Documents/Code/github/assignment1-basics/data/TinyStoriesV2-GPT4-valid-id.npy --vocab_size 10000
 """
 
 
@@ -146,7 +148,7 @@ def main(args):
         optimizer.step()
 
         # Logging
-        if it % args.log_interval == 0:
+        if it % args.log_interval == 0 and it != 0:
             dt = time.time() - t0
             print(
                 f"iter {it:6d} | "
@@ -210,12 +212,12 @@ if __name__ == "__main__":
 
     # Logging / eval
     parser.add_argument("--log_interval", type=int, default=10)
-    parser.add_argument("--eval_interval", type=int, default=1000)
+    parser.add_argument("--eval_interval", type=int, default=50)
     parser.add_argument("--eval_iters", type=int, default=2)
 
     # Checkpoints
     parser.add_argument("--ckpt_dir", type=str, default="checkpoints")
-    parser.add_argument("--ckpt_interval", type=int, default=10)
+    parser.add_argument("--ckpt_interval", type=int, default=50)
     parser.add_argument("--resume", type=str, default=None)
 
     # Device
