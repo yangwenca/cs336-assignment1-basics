@@ -1,3 +1,6 @@
+import os
+import typing
+
 
 import numpy as np
 import numpy.typing as npt
@@ -6,6 +9,7 @@ import torch
 
 """
 uv run pytest -k test_get_batch
+uv run pytest -k test_checkpointing
 """
 
 
@@ -28,3 +32,30 @@ def get_batch(
     targets = torch.from_numpy(targets).to(device=device)
 
     return inputs, targets
+
+
+def save_checkpoint(
+    model: torch.nn.Module,
+    optimizer: torch.optim.Optimizer,
+    iteration: int,
+    out: str | os.PathLike | typing.BinaryIO | typing.IO[bytes],
+) -> None:
+    checkpoint = {
+        "model_state": model.state_dict(),
+        "optimizer_state": optimizer.state_dict(),
+        "iteration": iteration,
+    }
+
+    torch.save(checkpoint, out)
+
+def load_checkpoint(
+    src: str | os.PathLike | typing.BinaryIO | typing.IO[bytes],
+    model: torch.nn.Module,
+    optimizer: torch.optim.Optimizer,
+) -> int:
+    checkpoint = torch.load(src)
+
+    model.load_state_dict(checkpoint["model_state"])
+    optimizer.load_state_dict(checkpoint["optimizer_state"])
+
+    return checkpoint["iteration"]
