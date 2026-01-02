@@ -6,12 +6,16 @@ import numpy as np
 import torch
 
 from cs336_basics.data import estimate_loss, get_batch, load_checkpoint, plot_losses, save_checkpoint
+from cs336_basics.decoder import decode
 from cs336_basics.module import Transformer_LM
 from cs336_basics.optimizer import AdamW, CrossEntropy, get_lr_cosine_schedule, gradient_clipping
+from cs336_basics.tokenizer import Tokenizer
 
 
 """
-python3 main.py --train_data /workspace/yang.wen@xiaopeng.com/fm/xpilot_vision/cs336_basics/data/TinyStoriesV2-GPT4-train-id.npy --val_data /workspace/yang.wen@xiaopeng.com/fm/xpilot_vision/cs336_basics/data/TinyStoriesV2-GPT4-valid-id.npy --vocab_size 10000
+uv run python3 main.py --train_data /workspace/yang.wen@xiaopeng.com/fm/xpilot_vision/cs336_basics/data/TinyStoriesV2-GPT4-train-id.npy --val_data /workspace/yang.wen@xiaopeng.com/fm/xpilot_vision/cs336_basics/data/TinyStoriesV2-GPT4-valid-id.npy --vocab_size 10000
+
+uv run python3 main.py --train_data /Users/YangWen/Documents/Code/github/assignment1-basics/data/TinyStoriesV2-GPT4-train-id.npy --val_data /Users/YangWen/Documents/Code/github/assignment1-basics/data/TinyStoriesV2-GPT4-valid-id.npy --vocab_size 10000 --device mps --decoder --vocab_filepath /Users/YangWen/Documents/Code/github/assignment1-basics/data/TinyStoriesV2-GPT4-train_vocab.pkl --merges_filepath /Users/YangWen/Documents/Code/github/assignment1-basics/data/TinyStoriesV2-GPT4-train_merge.pkl --resume /Users/YangWen/Documents/Code/github/assignment1-basics/cs336_basics/checkpoints/ckpt_50.pt
 """
 
 
@@ -45,6 +49,28 @@ def main(args):
     if args.resume is not None:
         start_iter = load_checkpoint(args.resume, model, optimizer)
         print(f"Resumed from iteration {start_iter}")
+
+    if args.decoder:
+        EOS_TOKEN = "<|endoftext|>"
+        mytokenizer = Tokenizer.from_files(
+            vocab_filepath=args.vocab_filepath,
+            merges_filepath=args.merges_filepath,
+            special_tokens=[EOS_TOKEN],
+        )
+        prompt = mytokenizer.encode(args.prompt)
+        inputs = torch.tensor([prompt], dtype=torch.int32, device=device)
+        ans = decode(
+            model=model,
+            tokenizer=mytokenizer,
+            prompt=inputs,
+            max_token=args.max_tokens,
+            temperature=args.temperature,
+            threshold=args.threshold,
+            eos_token=EOS_TOKEN,
+            device=device,
+        )
+        print(ans)
+        return
 
     os.makedirs(args.ckpt_dir, exist_ok=True)
 
@@ -119,7 +145,8 @@ def main(args):
             print(f"Saved checkpoint to {ckpt_path}")
 
     print("Training complete.")
-    plot_losses(steps, train_losses, val_losses, args.max_lr, args.plot_dir)
+    if len(steps) == len(train_losses) == len(val_losses) != 0:
+        plot_losses(steps, train_losses, val_losses, args.max_lr, args.plot_dir)
 
 
 # ------------------------------------------------------------
@@ -151,7 +178,7 @@ if __name__ == "__main__":
     parser.add_argument("--weight_decay", type=float, default=0.01)
     parser.add_argument("--betas", type=float, nargs=2, default=(0.9, 0.995))
     parser.add_argument("--eps", type=float, default=1e-8)
-    parser.add_argument("--max_iters", type=int, default=100)
+    parser.add_argument("--max_iters", type=int, default=51)
     parser.add_argument("--max_l2_norm", type=float, default=10)
 
     # Logging / eval
@@ -169,6 +196,16 @@ if __name__ == "__main__":
 
     # Device
     parser.add_argument("--device", type=str, default="cpu")
+
+    # generate
+    parser.add_argument("--decoder", action="store_true", help="Enable decoder mode (default: False)")
+    parser.add_argument("--vocab_filepath", type=str, default=None)
+    parser.add_argument("--merges_filepath", type=str, default=None)
+    parser.add_argument("--max_tokens", type=int, default=100)
+    parser.add_argument("--temperature", type=float, default=1.0)
+    parser.add_argument("--threshold", type=float, default=0.9)
+    parser.add_argument("--prompt", type=str, default="Today is a sunny day")
+
 
     args = parser.parse_args()
     main(args)
