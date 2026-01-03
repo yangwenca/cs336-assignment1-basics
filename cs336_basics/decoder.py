@@ -18,7 +18,7 @@ def decode(
 
     end_idx = tokenizer.encode(eos_token)[0]
     generated = prompt.clone()
-    for _ in range(max_token):
+    while generated.size(-1) < max_token:
         output = model(generated)
         # temperature scaling
         logits = output[:, -1, :] / max(temperature, 1e-8)
@@ -38,11 +38,10 @@ def decode(
         # sample
         next_token = torch.multinomial(probs, num_samples=1)
         next_token_id = sorted_indices.gather(-1, next_token)
-        generated = torch.cat([generated, next_token_id], dim=-1)
-
         # stop if EOS
         if end_idx == next_token_id.item():
             break
+        generated = torch.cat([generated, next_token_id], dim=-1)
 
     # Decode generated tokens to string
     output_ids = generated[0].tolist()
