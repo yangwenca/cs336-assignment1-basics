@@ -8,7 +8,7 @@ def decode(
     tokenizer: Tokenizer,
     prompt: torch.Tensor,
     max_token: int,
-    temperatue: float = 1.0,
+    temperature: float = 1.0,
     threshold: float = 0.9,
     eos_token: str = '<|endoftext|>',
     device: str = "cpu",
@@ -20,8 +20,8 @@ def decode(
     generated = prompt.clone()
     for _ in range(max_token):
         output = model(generated)
-        # temperatue scaling
-        logits = output[:, -1, :] / max(temperatue, 1e-8)
+        # temperature scaling
+        logits = output[:, -1, :] / max(temperature, 1e-8)
 
         # top-p sampling
         sorted_logits, sorted_indices = torch.sort(logits, descending=True)
@@ -61,7 +61,7 @@ def test_decode() -> None:
     theta= 10000
     eos_token = "<|endoftext|>"
 
-    TinyStoriesTokenzier = Tokenizer.from_files(
+    myTokenzier = Tokenizer.from_files(
         vocab_filepath=prefix + "TinyStoriesV2-GPT4-train_vocab.pkl",
         merges_filepath=prefix + "TinyStoriesV2-GPT4-train_merge.pkl",
         special_tokens=[eos_token],
@@ -76,13 +76,14 @@ def test_decode() -> None:
         d_ff=d_ff,
         theta=theta,
     )
-    prompt = torch.tensor([[2, 3, 4, 89]], dtype=torch.int32)
+    prompt = myTokenzier.encode("today is a sunny day")
+    inputs = torch.tensor([prompt], dtype=torch.int32)
     ans = decode(
         model=model,
-        tokenizer=TinyStoriesTokenzier,
-        prompt=prompt,
+        tokenizer=myTokenzier,
+        prompt=inputs,
         max_token=50,
-        temperatue=1.0,
+        temperature=1.0,
         eos_token=eos_token,
     )
     print(ans)

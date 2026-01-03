@@ -1,8 +1,7 @@
 from collections.abc import Iterable, Iterator
-import os
 import regex as re
 
-from cs336_basics.train_bpe import PAT
+from cs336_basics.bpe import PAT
 import pickle
 
 class Tokenizer:
