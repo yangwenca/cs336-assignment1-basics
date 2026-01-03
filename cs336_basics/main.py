@@ -129,8 +129,8 @@ def main(args):
     device = torch.device(args.device)
 
     # Memory-mapped datasets
-    train_data = np.memmap(args.train_data, dtype=np.uint16, mode="r")
-    val_data = np.memmap(args.val_data, dtype=np.uint16, mode="r")
+    train_data = np.load(args.train_data, mmap_mode="r")
+    val_data = np.load(args.val_data, mmap_mode="r")
 
     model = Transformer_LM(
         vocab_size=args.vocab_size,
