@@ -97,7 +97,6 @@ post-norm identity path is broken
 ablation 2
 nope can't distinguish word order, can't learn syntax, tokens are embedded only by their identity
 
-
 ablation 3
 SwiGLU vs SiLU
 SwiGLU: what features to activation, how strongly to activate them,
