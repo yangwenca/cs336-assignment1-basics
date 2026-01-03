@@ -48,7 +48,50 @@ Tim said, "I think the plane did fall!" Sam said, "Yes, it did! We got so dizzy!
 
 7.3
 ablation 1
+without RMSNorms, it divenges at the previous optimal learning rate.
+Rmoving RMSNorm cuased training to diverge at the previous optimal learning rate. This indicates
+that normalization plays a crucial role in stabilizing optimization by controlling activation and
+gradient scales. Stability could be recovered by reducing the learning rate by an order of magnitude,
+but training became significantly slower and converged to a worse solution. This demonstrates that
+RMSNorm enables both higher learning rates and better optimization efficiency.
+Lower LR does not fix scale drift, does not fix gradient anisotropy, makes optimization inefficient.
+scale drift: magnitude of activations or gradients grows or shrinks as they pass through layers.
+gradient anisotropy: gradient magnitudes vary wilding across different parameter directions, some
+parameters very large gradients, some are very small gradients.
 
+ablation 2
+pre-norm vs post-norm
+pre-norm keeps the residual path as an identity map while post-norm does not.
+post-norm identity path is broken
+
+ablation 3
+SwiGLU vs SiLU
+SwiGLU: what features to activation, how strongly to activate them,
+gate can suppress noisy activations, reduces gradient explosion, improves conditioning
+selective activation, implicit sparsity
+SiLU can be useful if model is small
+
+7.4
+Using OWT data to traing the model with same setting (batch size = 256)
+Loss is around 4.4127.
+Loss is higher with OWT because OWT has higher intrinsic entropy.
+owt: broad topics, long range dependencies, many valid next tokens
+The model is worse than TinyStories based on loss.
+This text is worse than TinyStories.
+Fluency is OK. Fluency comes from local n-gram statistics, short-range syntactic patterns.
+Cheap to learn. Missing long-range coherence, semantic depth, intentional structure
+The token in OpenWebText is more than TinyStories.
+According to scaling law, need to have large model and more compute budget.
+
+Generate from owt
+Today is a sunny day to Google to remove commercial satellites,” the term says.
+
+While some of the most reliable phasers can download the picture but looks back at the moment.
+Google suggested that it would be able to ship the most expensive software
+using the tectonic crystals for lunar geometry.
+Google started with an enhanced application,
+set to expire on Wednesday and determine whether there would be somewhere between 3 and 13 in the past 10 years.
+And yet, online file photo is now being told that using the researchers can probe
 """
 
 def main(args):
