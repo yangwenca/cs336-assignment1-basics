@@ -90,10 +90,13 @@ scale drift: magnitude of activations or gradients grows or shrinks as they pass
 gradient anisotropy: gradient magnitudes vary wilding across different parameter directions, some
 parameters very large gradients, some are very small gradients.
 
-ablation 2
 pre-norm vs post-norm
 pre-norm keeps the residual path as an identity map while post-norm does not.
 post-norm identity path is broken
+
+ablation 2
+nope can't distinguish word order, can't learn syntax, tokens are embedded only by their identity
+
 
 ablation 3
 SwiGLU vs SiLU
