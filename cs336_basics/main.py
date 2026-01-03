@@ -13,9 +13,40 @@ from cs336_basics.tokenizer import Tokenizer
 
 
 """
-uv run python3 main.py --train_data /workspace/yang.wen@xiaopeng.com/fm/xpilot_vision/cs336_basics/data/TinyStoriesV2-GPT4-train-id.npy --val_data /workspace/yang.wen@xiaopeng.com/fm/xpilot_vision/cs336_basics/data/TinyStoriesV2-GPT4-valid-id.npy --vocab_size 10000
+uv run python3 main.py --train_data /Users/YangWen/Documents/Code/github/assignment1-basics/data/TinyStoriesV2-GPT4-train-id.npy --val_data /Users/YangWen/Documents/Code/github/assignment1-basics/data/TinyStoriesV2-GPT4-valid-id.npy --vocab_size 10000
 
 uv run python3 main.py --train_data /Users/YangWen/Documents/Code/github/assignment1-basics/data/TinyStoriesV2-GPT4-train-id.npy --val_data /Users/YangWen/Documents/Code/github/assignment1-basics/data/TinyStoriesV2-GPT4-valid-id.npy --vocab_size 10000 --device mps --decoder --vocab_filepath /Users/YangWen/Documents/Code/github/assignment1-basics/data/TinyStoriesV2-GPT4-train_vocab.pkl --merges_filepath /Users/YangWen/Documents/Code/github/assignment1-basics/data/TinyStoriesV2-GPT4-train_merge.pkl --resume /Users/YangWen/Documents/Code/github/assignment1-basics/cs336_basics/checkpoints/ckpt_50.pt
+
+
+#!/usr/bin/env bash
+
+uv run python3 main.py \
+  --train_data /Users/YangWen/Documents/Code/github/assignment1-basics/data/TinyStoriesV2-GPT4-train-id.npy \
+  --val_data /Users/YangWen/Documents/Code/github/assignment1-basics/data/TinyStoriesV2-GPT4-valid-id.npy \
+  --vocab_size 10000 \
+  --device cuda \
+  --context_length 256 \
+  --d_model 512 \
+  --d_ff 1344 \
+  --theta 10000 \
+  --num_layers 4 \
+  --num_heads 16 \
+  --betas 0.9 0.95 \
+  --max_lr 5e-3 \
+  --min_lr 5e-4 \
+  --batch_size 512 \
+  --max_iters 2501 \
+  --cosine 2501 \
+  --log_interval 250 \
+  --eval_interval 250 \
+  --ckpt_interval 250 \
+  --warmup 50 \
+  --vocab_filepath /Users/YangWen/Documents/Code/github/assignment1-basics/data/TinyStoriesV2-GPT4-train_vocab.pkl \
+  --merges_filepath /Users/YangWen/Documents/Code/github/assignment1-basics/data/TinyStoriesV2-GPT4-train_merge.pkl \
+  # --resume /Users/YangWen/Documents/Code/github/assignment1-basics/checkpoints/ckpt_2500.pt \
+  # --max_tokens 256 \
+  # --decoder \
+
 """
 
 """
